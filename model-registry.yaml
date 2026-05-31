@@ -1,0 +1,47 @@
+registry:
+  name: northstar-models
+  stages:
+    - name: staging
+      promoted_from: training_pipeline_success
+      promotion_rule: automatic
+      gates:
+        - name: global_performance
+          check: "Mean Absolute Error (MAE) on hold-out set <= 180s"
+        - name: slice_stability
+          check: "MAE on 'Urban-High-Density' slice within 10% of global MAE"
+        - name: unit_tests
+          check: "All model signature and schema validation tests passed"
+    - name: production
+      promoted_from: staging
+      promotion_rule: manual
+      gates:
+        - name: canary_health
+          check: "Canary rollout (5% traffic) error rate < 0.1% over 60 mins"
+        - name: latency_sla
+          check: "P95 inference latency <= model.sla_p95_ms"
+        - name: drift_check
+          check: "Feature distribution shift (PSI) < 0.2 compared to training data"
+      approvers:
+        - ML_Platform_Lead
+        - Product_Owner_Logistics
+    - name: archived
+      promoted_from: superseded_in_production
+      promotion_rule: automatic
+
+models:
+  - name: eta
+    owner: eta-squad@northstar.logistics
+    sla_p95_ms: 150
+    retention_versions: 10
+  - name: dispatcher-routing
+    owner: routing-squad@northstar.logistics
+    sla_p95_ms: 80
+    retention_versions: 10
+
+lineage:
+  required_fields:
+    - git_sha
+    - dataset_hash
+    - training_config_yaml_hash
+    - environment_docker_digest
+    - random_seed
